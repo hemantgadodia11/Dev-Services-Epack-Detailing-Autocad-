@@ -1,0 +1,5 @@
+backend-wrapper.js
+frontend-wrapper.js
+pm2-services.config.js
+logs/
+*.log
