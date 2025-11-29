@@ -19,7 +19,7 @@ class DXFExtractor:
         self.inventory_item_regex = r"^\d+ [A-Za-z0-9]+_[A-Za-z0-9()]+(~\d+)?$"
         # self.pipe_regex_MTEXT_pattern=r'\\A\d+;\d+ PB\d~{\\A\d+;\\C\d+;\d+NB \(M\)PIPE}'
         # self.pipe_regex_DIMENSION_pattern=r'<> PB\d~{\\A\d+;\\C\d+;\d+NB \(M\)PIPE}'
-        self.shs_regex = re.compile(r"^SHS(\d+)X(\d+)(?:\(\d+\))?$")
+        self.shs_regex = re.compile(r"^SHS(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)(?:\((\d+(?:\.\d+)?)\))?$")
         self.ang_regex = re.compile(r"^ANG(\d+)X(\d+)(?:\(\d+\))?$")
         self.ismb_regex = re.compile(r"^ISMB(\d+)X(\d+)(?:\([^)]+\))?$")
 
@@ -220,7 +220,7 @@ class DXFExtractor:
                                         if DXFExtractor.error_logging_enabled:
                                             self.logger.error(f"Error {e}")
 
-                                elif ("TST" in virtual_entity.dxf.text):
+                                elif "TST" in virtual_entity.dxf.text:
 
                                     print("You are here TST---1")
                                     try:
@@ -360,9 +360,7 @@ class DXFExtractor:
                                         if DXFExtractor.error_logging_enabled:
                                             self.logger.error(f"Error  {e}")
 
-                            elif virtual_entity.dxftype() == "MTEXT" and re.match(
-                                self.inventory_item_regex, virtual_entity.dxf.text
-                            ):
+                            elif virtual_entity.dxftype() == "MTEXT" and re.match(self.inventory_item_regex, virtual_entity.dxf.text):
                                 try:
                                     part_str = virtual_entity.dxf.text.strip()
                                     print(part_str,"You are Here elif ----1")
@@ -491,17 +489,18 @@ class DXFExtractor:
                                         area = 0
                                         length = float(length)
                                         if "SHS" in part_mark:
-                                            match = self.shs_regex.match(
-                                                inventory_part_name
-                                            )
+                                            print("Getting inside IF")
+                                            match = self.shs_regex.match(inventory_part_name)
+                                            print(inventory_part_name,"inventory_part_name")
+                                            print(match,"Match")
                                             if match:
                                                 side1 = float(match.group(1))
                                                 side2 = float(match.group(2))
                                                 # print(length)
                                                 area = (
-                                                    side1 * side2 * 2 * length
+                                                    (side1 + side2) * 2 * length
                                                 ) / 1000000
-                                                # print(area)
+                                                print(area,"Area Of SHS1")
 
                                         elif "PB" in part_mark:
                                             match = self.pipe_regex.match(
@@ -794,7 +793,7 @@ class DXFExtractor:
                                 print("You are here TST---2")
                                 try:
                                     
-                                    part_str = virtual_entity.dxf.text[4:]
+                                    part_str = entity.dxf.text.strip()
                                     print(part_str,"You are Here TST----2")
                                     dimention, name = part_str.split(" ")
                                     length, width, thickness = dimention.split("X")
@@ -928,7 +927,7 @@ class DXFExtractor:
                         #     pass
                         if "TST" in entity.dxf.text:
                                 
-                                print("You are here TST---2")
+                                print("You are here TST---2ghgh")
                                 try:
                                     
                                     part_str = self.clean_mtext(entity.dxf.text).strip()
@@ -947,7 +946,9 @@ class DXFExtractor:
                                     volume1 = length * width * thickness / 1000000000
                                     volume = volume1
                                     weight1 = volume * float(self.density)
-                                    weight = weight1/2
+                                    print(weight1,"weight of TST actual")
+                                    weight_div2 = weight1/2
+                                    print(weight_div2,"weight of TST /2 ")
 
                                     if "~" in name:
                                         part_name, qty = name.split("~")
@@ -955,10 +956,7 @@ class DXFExtractor:
                                         qty = 1
                                         part_name = name
 
-                                    if (
-                                        part_name
-                                        not in duplicate_check_dict[block.name]
-                                    ):
+                                    if (part_name not in duplicate_check_dict[block.name]):
                                         block_wise_parts_dict[block.name][
                                             "parts"
                                         ].append(
@@ -979,9 +977,9 @@ class DXFExtractor:
                                                     else volume
                                                 ),
                                                 "Weight (kg)": (
-                                                    round(weight, 2)
-                                                    if round(weight, 2)
-                                                    else weight
+                                                    round(weight_div2, 2)
+                                                    if round(weight_div2, 2)
+                                                    else weight_div2
                                                 ),
                                                 "Yield": (
                                                     240
@@ -993,7 +991,7 @@ class DXFExtractor:
                                         duplicate_check_dict[block.name][
                                             part_name
                                         ] = True
-
+                                    print(block_wise_parts_dict[block.name]["parts"][-1],"block_wise_parts_dict")
                                 except Exception as e:
                                     if DXFExtractor.error_logging_enabled:
                                         self.logger.error(f"Error  {e}")
