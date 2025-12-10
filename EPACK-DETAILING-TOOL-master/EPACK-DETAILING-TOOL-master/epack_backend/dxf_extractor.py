@@ -150,7 +150,82 @@ class DXFExtractor:
                                         if DXFExtractor.error_logging_enabled:
                                             self.logger.error(f"Error {e}")
 
-                                if ("-" in virtual_entity.dxf.text and "WP" in virtual_entity.dxf.text):
+
+                                elif ("-" in virtual_entity.dxf.text and "TWP" in virtual_entity.dxf.text):
+                                    # print("You are here wp---1")
+                                    try:
+                                        part_str = virtual_entity.dxf.text[4:]
+                                        print(part_str,"You are Here TWP ----1")
+                                        dimension, name = part_str.split(" ")
+                                        dimension = re.sub(r"[()]", "", dimension)
+                                        # print("Dimension",dimension)
+                                        length_segments = [float(l) for l in dimension.split("X")[0].split("+")]
+                                        width1 = float(dimension.split("X")[1])
+                                        thickness = float(dimension.split("X")[2])
+
+                                        # Extract widths (e.g., 700-500)
+                                        width_values = [float(w) for w in name.split("(")[1].split(")")[0].split("-")]
+
+                                        # Calculate total length
+                                        length = sum(length_segments)
+
+                                        # Calculate dynamic area: segment-wise
+                                        area = 0
+                                        total_weight = 0
+                                        volume_segment = 0
+                                        for i in range(len(length_segments)):
+                                            l = length_segments[i]
+                                            w1 = width_values[i]
+                                            w2 = width_values[i + 1]
+                                            avg_width = (w1 + w2) / 2
+
+                                            area_segment = (
+                                                (l * avg_width) * 2
+                                                + (l * thickness) * 2
+                                                + (avg_width * thickness) * 2
+                                            )
+                                            area = w1
+                                            print(area,"AREA")
+                                            # Volume for the current segment
+                                            volume_segment = l * avg_width * thickness / 1000000000  # mm³ to m³
+                                            total_weight += volume_segment * float(self.density)  # Weight = Volume * Density
+
+                                        area = area / 1000000  # mm² to m²
+                                        print(area,"AREA2")
+
+                                        # Use average of all widths for volume and yield
+                                        avg_width = sum(width_values) / len(width_values)
+                                        volume = l * avg_width * thickness / 1000000000
+                                        weight = area *thickness * float(self.density) / 1000
+                                        print(weight,"WEIGHT")
+
+                                        if "~" in name:
+                                            part_name, qty = name.split("~")
+                                        else:
+                                            qty = 1
+                                            part_name = name
+
+                                        if part_name not in duplicate_check_dict[block.name]:
+                                            block_wise_parts_dict[block.name]["parts"].append(
+                                                {
+                                                    "Part Name": part_name.upper(),
+                                                    "Thickness (mm)": thickness,
+                                                    "Quantity": float(qty),
+                                                    "Length (mm)": length,
+                                                    "Width (mm)": float(width1),
+                                                    "Area (m2)": round(area, 2) if round(area, 2) != 0 else area,
+                                                    "Volume (m3)": round(volume, 2) if round(volume, 2) else volume,
+                                                    "Weight (kg)": round(weight, 2) if round(weight, 2) else weight,
+                                                    "Yield": 240 if avg_width == 0 else 345,
+                                                }
+                                            )
+                                            duplicate_check_dict[block.name][part_name] = True
+
+                                    except Exception as e:
+                                        if DXFExtractor.error_logging_enabled:
+                                            self.logger.error(f"Error {e}")
+
+                                elif ("-" in virtual_entity.dxf.text and "WP" in virtual_entity.dxf.text):
                                     # print("You are here wp---1")
                                     try:
                                         part_str = virtual_entity.dxf.text[4:]
@@ -718,8 +793,83 @@ class DXFExtractor:
                                     except Exception as e:
                                         if DXFExtractor.error_logging_enabled:
                                             self.logger.error(f"Error {e}")
+
+                        elif "-" in entity.dxf.text and "TWP" in entity.dxf.text:
+                                    print("You are here Twp---1")
+                                    try:
+                                        # part_str = virtual_entity.dxf.text[4:]
+                                        part_str = entity.dxf.text[4:]
+                                        print(part_str,"You are Here TWP ----1")
+                                        dimension, name = part_str.split(" ")
+                                        dimension = re.sub(r"[()]", "", dimension)
+                                        # print("Dimension",dimension)
+                                        length_segments = [float(l) for l in dimension.split("X")[0].split("+")]
+                                        width1 = float(dimension.split("X")[1])
+                                        thickness = float(dimension.split("X")[2])
+
+                                        # Extract widths (e.g., 700-500)
+                                        width_values = [float(w) for w in name.split("(")[1].split(")")[0].split("-")]
+
+                                        # Calculate total length
+                                        length = sum(length_segments)
+
+                                        # Calculate dynamic area: segment-wise
+                                        area = 0
+                                        total_weight = 0
+                                        volume_segment = 0
+                                        for i in range(len(length_segments)):
+                                            l = length_segments[i]
+                                            w1 = width_values[i]
+                                            w2 = width_values[i + 1]
+                                            avg_width = (w1 + w2) / 2
+
+                                            area_segment = (
+                                                (l * avg_width) * 2
+                                                + (l * thickness) * 2
+                                                + (avg_width * thickness) * 2
+                                            )
+                                            area = w1
+                                            print(area,"AREA")
+                                            # Volume for the current segment
+                                            volume_segment = l * avg_width * thickness / 1000000000  # mm³ to m³
+                                            total_weight += volume_segment * float(self.density)  # Weight = Volume * Density
+
+                                        area = area / 1000000  # mm² to m²
+                                        print(area,"AREA2")
+
+                                        # Use average of all widths for volume and yield
+                                        avg_width = sum(width_values) / len(width_values)
+                                        volume = l * avg_width * thickness / 1000000000
+                                        weight = area *thickness * float(self.density) / 1000
+                                        print(weight,"WEIGHT")
+
+                                        if "~" in name:
+                                            part_name, qty = name.split("~")
+                                        else:
+                                            qty = 1
+                                            part_name = name
+
+                                        if part_name not in duplicate_check_dict[block.name]:
+                                            block_wise_parts_dict[block.name]["parts"].append(
+                                                {
+                                                    "Part Name": part_name.upper(),
+                                                    "Thickness (mm)": thickness,
+                                                    "Quantity": float(qty),
+                                                    "Length (mm)": length,
+                                                    "Width (mm)": float(width1),
+                                                    "Area (m2)": round(area, 2) if round(area, 2) != 0 else area,
+                                                    "Volume (m3)": round(volume, 2) if round(volume, 2) else volume,
+                                                    "Weight (kg)": round(weight, 2) if round(weight, 2) else weight,
+                                                    "Yield": 240 if avg_width == 0 else 345,
+                                                }
+                                            )
+                                            duplicate_check_dict[block.name][part_name] = True
+
+                                    except Exception as e:
+                                        if DXFExtractor.error_logging_enabled:
+                                            self.logger.error(f"Error {e}")
                         
-                        if "-" in entity.dxf.text and "WP" in entity.dxf.text:
+                        elif "-" in entity.dxf.text and "WP" in entity.dxf.text:
                             try:
                                 part_str = entity.dxf.text.strip()
                                 print(part_str,"You are Here WP----2")
