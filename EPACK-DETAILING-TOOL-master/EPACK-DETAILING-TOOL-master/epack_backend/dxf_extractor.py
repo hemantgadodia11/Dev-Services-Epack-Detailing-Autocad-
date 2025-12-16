@@ -22,6 +22,7 @@ class DXFExtractor:
         self.shs_regex = re.compile(r"^SHS(\d+(?:\.\d+)?)X(\d+(?:\.\d+)?)(?:\((\d+(?:\.\d+)?)\))?$")
         self.ang_regex = re.compile(r"^ANG(\d+)X(\d+)(?:\(\d+\))?$")
         self.ismb_regex = re.compile(r"^ISMB(\d+)X(\d+)(?:\([^)]+\))?$")
+        self.ismc_regex = re.compile(r"^ISMC(\d+)X(\d+)(?:\([^)]+\))?$")
 
         self.pipe_regex = re.compile(r"(\d+)NB")
 
@@ -608,6 +609,22 @@ class DXFExtractor:
                                                 # print(area)
                                                 # print("PB",area)
 
+                                        elif "ISMC" in part_mark:
+                                            print("You are here ------------------- ISMC1",inventory_part_name)
+                                            match = self.ismc_regex.match(
+                                                inventory_part_name
+                                            )
+                                            # print("You are here ------------------- ISMB2",match)
+                                            if match:
+                                                side1 = float(match.group(1))
+                                                side2 = float(match.group(2))
+                                                # print(length)
+                                                area = (
+                                                    (side1 + (side2*2)) * 2 * length
+                                                ) / 1000000
+                                                # print(area)
+                                                print("ISMC area",area)
+
                                         elif "ANG" in part_mark:
                                             match = self.ang_regex.match(
                                                 inventory_part_name
@@ -615,10 +632,13 @@ class DXFExtractor:
                                             if match:
                                                 side1 = float(match.group(1))
                                                 side2 = float(match.group(2))
+                                                print("ANG_side1", side1)
+                                                print("ANG_side2", side2)
+                                                print("ANG_length", length)
                                                 area = (
-                                                    side1 * side2 * 2 * length
+                                                   ( (side1 + side2) * 2) * length
                                                 ) / 1000000
-
+                                                print("ANG_area", area)
                                         # print(inventory_part_name)
                                         # print(length)
                                         # print("\n")
@@ -648,6 +668,7 @@ class DXFExtractor:
                                                 "Yield": 250,
                                             }
                                         )
+                                        print("last_insertion:  ",block_wise_parts_dict[block.name]["parts"][-1])
                                         duplicate_check_dict[block.name][
                                             part_mark
                                         ] = True
