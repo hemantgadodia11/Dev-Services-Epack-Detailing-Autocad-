@@ -557,12 +557,10 @@ class DXFExtractor:
                                         / 1000
                                     )
 
-                                    if (
-                                        part_mark
-                                        not in duplicate_check_dict[block.name]
-                                    ):
+                                    if (part_mark not in duplicate_check_dict[block.name]):
                                         # pre-calculate the Area
                                         area = 0
+                                        print("ghus toh raha hai", part_mark)
                                         length = float(length)
                                         if "SHS" in part_mark:
                                             print("Getting inside IF")
@@ -578,7 +576,7 @@ class DXFExtractor:
                                                 ) / 1000000
                                                 print(area,"Area Of SHS1")
 
-                                        elif "PB" or "SP" in part_mark:
+                                        elif "PB" in part_mark or "SP" in part_mark:
                                             match = self.pipe_regex.match(
                                                 inventory_part_name
                                             )
@@ -672,6 +670,9 @@ class DXFExtractor:
                                         duplicate_check_dict[block.name][
                                             part_mark
                                         ] = True
+                                    else:
+                                        print("Nahi Ghus raha hai")
+                                        
 
                                 except Exception as e:
                                     if DXFExtractor.error_logging_enabled:
