@@ -14,8 +14,8 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Router, { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CircleArrowUp, CloudUpload, Plus, WatchIcon } from "lucide-react";
-import { ChangeEvent, useEffect, useState } from "react";
+import { CircleArrowUp, CloudUpload, Plus, Search, WatchIcon } from "lucide-react";
+import { ChangeEvent, useEffect, useMemo, useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -37,9 +37,20 @@ export function UploadFile({ project_list }) {
   const [newProjectName, setNewProjectName] = useState("");
   const [lineWeight, setLineWeight] = useState<string>("");
   const [markBlocksCount, setMarkBlocksCount] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
   console.log("From upload Component", project_list);
+
+  // Filter projects based on search query
+  const filteredProjects = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return project_list;
+    }
+    return project_list.filter((project) =>
+      project.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [project_list, searchQuery]);
 
   const generateExcel = (data) => {
     console.log("Generating Excel file with data:");
@@ -311,25 +322,55 @@ export function UploadFile({ project_list }) {
           </Label>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline">{existingProject}</Button>
+              <Button variant="outline">
+                {existingProject || "Select a project"}
+              </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-80">
               <DropdownMenuLabel>Select Project</DropdownMenuLabel>
               <DropdownMenuSeparator />
 
+              {/* Search Box */}
+              <div className="p-2 sticky top-0 bg-white">
+                <div className="relative">
+                  <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
+                    type="text"
+                    placeholder="Search projects..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-8 h-9"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  />
+                </div>
+              </div>
+
+              <DropdownMenuSeparator />
+
               <DropdownMenuRadioGroup
                 value={existingProject}
                 onValueChange={setExistingProject}
-                className=" max-h-40 overflow-y-auto"
+                className="max-h-40 overflow-y-auto"
               >
+                {/* New Project option - always visible */}
                 <DropdownMenuRadioItem value="New Project">
                   ➕ New Project
                 </DropdownMenuRadioItem>
-                {project_list.map((project) => (
-                  <DropdownMenuRadioItem key={project} value={project}>
-                    {project}
-                  </DropdownMenuRadioItem>
-                ))}
+                
+                <DropdownMenuSeparator />
+                
+                {filteredProjects.length > 0 ? (
+                  filteredProjects.map((project) => (
+                    <DropdownMenuRadioItem key={project} value={project}>
+                      {project}
+                    </DropdownMenuRadioItem>
+                  ))
+                ) : (
+                  <div className="p-2 text-sm text-gray-500 text-center">
+                    No projects found
+                  </div>
+                )}
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
