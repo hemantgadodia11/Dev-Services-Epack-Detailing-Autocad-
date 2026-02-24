@@ -578,7 +578,7 @@ class DXFExtractor:
                                                 ) / 1000000
                                                 print(area,"Area Of SHS1")
 
-                                        elif "PB" in part_mark:
+                                        elif "PB" or "SP" in part_mark:
                                             match = self.pipe_regex.match(
                                                 inventory_part_name
                                             )
@@ -741,72 +741,64 @@ class DXFExtractor:
                     ):
                         # if ("-" in virtual_entity.dxf.text and "TPL" in virtual_entity.dxf.text):
                         if "-" in entity.dxf.text and "TPL" in entity.dxf.text:
-                                    print("You are here wp---1")
+                                    print("You are here TPL---3")
                                     try:
-                                        # part_str = virtual_entity.dxf.text[4:]
-                                        part_str = entity.dxf.text[4:]
-                                        print(part_str,"You are Here TPL ----1")
+                                        print("\n================= TPL DEBUG START =================")
+                                        print("[A] RAW part_str:", repr(part_str))
+                                        part_str = entity.dxf.text
+                                        print(part_str,"You are Here TPL ----4")
                                         dimension, name = part_str.split(" ")
                                         dimension = re.sub(r"[()]", "", dimension)
+                                        print("123456789")
                                         # print("Dimension",dimension)
-                                        length_segments = [float(l) for l in dimension.split("X")[0].split("+")]
-                                        width1 = float(dimension.split("X")[1])
-                                        thickness = float(dimension.split("X")[2])
-
-                                        # Extract widths (e.g., 700-500)
-                                        width_values = [float(w) for w in name.split("(")[1].split(")")[0].split("-")]
-
-                                        # Calculate total length
-                                        length = sum(length_segments)
-
-                                        # Calculate dynamic area: segment-wise
-                                        area = 0
-                                        total_weight = 0
-                                        volume_segment = 0
-                                        for i in range(len(length_segments)):
-                                            l = length_segments[i]
-                                            w1 = width_values[i]
-                                            w2 = width_values[i + 1]
-                                            avg_width = (w1 + w2) / 2
-
-                                            area_segment = (
-                                                (l * avg_width) * 2
-                                                + (l * thickness) * 2
-                                                + (avg_width * thickness) * 2
-                                            )
-                                            area = w1
-                                            print(area,"AREA")
-                                            # Volume for the current segment
-                                            volume_segment = l * avg_width * thickness / 1000000000  # mm³ to m³
-                                            total_weight += volume_segment * float(self.density)  # Weight = Volume * Density
-
-                                        area = area / 1000000  # mm² to m²
-                                        print(area,"AREA2")
-
-                                        # Use average of all widths for volume and yield
-                                        avg_width = sum(width_values) / len(width_values)
-                                        volume = l * avg_width * thickness / 1000000000
-                                        weight = area *thickness * float(self.density) / 1000
-                                        print(weight,"WEIGHT")
-
+                                        length, width, thickness = dimension.split("X")
+                                        length = float(length)
+                                        width = float(width)
+                                        thickness = float(thickness)
+                                        print("0123456789")
+                                        m = re.search(r"\((\d+)-", name)
+                                        area = float(m.group(1)) if m else 0.0
+                                        print("10123456789")
+                                        area = area / 1000000  # Calculate area
+                                        print("110123456789")
+                                        volume = length * width * thickness / 1000000000
+                                        print("1110123456789")
+                                        weight = area * thickness * float(self.density) / 1000
+                                        print("11110123456789")
                                         if "~" in name:
                                             part_name, qty = name.split("~")
                                         else:
                                             qty = 1
                                             part_name = name
+                                        print("11111110123456789")
+                                        print(
+                                            f"Part Name: {part_name}, Thickness: {thickness}, Quantity: {qty}, Length: {length}, Width: {width}, Area: {area}, Volume: {volume}, Weight: {weight}"
+                                        )
 
                                         if part_name not in duplicate_check_dict[block.name]:
                                             block_wise_parts_dict[block.name]["parts"].append(
                                                 {
                                                     "Part Name": part_name.upper(),
-                                                    "Thickness (mm)": thickness,
+                                                    "Thickness (mm)": float(thickness),
                                                     "Quantity": float(qty),
-                                                    "Length (mm)": length,
-                                                    "Width (mm)": float(width1),
-                                                    "Area (m2)": round(area, 2) if round(area, 2) != 0 else area,
-                                                    "Volume (m3)": round(volume, 2) if round(volume, 2) else volume,
-                                                    "Weight (kg)": round(weight, 2) if round(weight, 2) else weight,
-                                                    "Yield": 240 if avg_width == 0 else 345,
+                                                    "Length (mm)": float(length),
+                                                    "Width (mm)": float(width),
+                                                    "Area (m2)": (
+                                                        round(area, 2)
+                                                        if round(area, 2) != 0
+                                                        else area
+                                                    ),
+                                                    "Volume (m3)": (
+                                                        round(volume, 2)
+                                                        if round(volume, 2) != 0
+                                                        else volume
+                                                    ),
+                                                    "Weight (kg)": (
+                                                        round(weight, 2)
+                                                        if round(weight, 2) != 0
+                                                        else weight
+                                                    ),
+                                                    "Yield": 240 if float(width) == 0 else 345,
                                                 }
                                             )
                                             duplicate_check_dict[block.name][part_name] = True
