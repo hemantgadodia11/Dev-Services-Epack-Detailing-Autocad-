@@ -210,7 +210,7 @@ def get_dxf_info():
                         "ignored_mtexts": result_data.get("ignored_mtexts", []),
                         "not_in_inventory": result_data.get("not_in_inventory", []),
                     }
-                    print(f"Returning success response: {response_data}")
+                    # print(f"Returning success response: {response_data}")
                     return jsonify(response_data), 200
                     
                 except Exception as e:
