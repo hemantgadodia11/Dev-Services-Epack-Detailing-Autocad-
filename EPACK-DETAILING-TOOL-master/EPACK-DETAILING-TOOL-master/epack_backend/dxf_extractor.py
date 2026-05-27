@@ -236,6 +236,7 @@ class DXFExtractor:
                                         # print("Dimension",dimension)
                                         length_segments = [float(l) for l in dimension.split("X")[0].split("+")]
                                         thickness = float(dimension.split("X")[2])
+                                        print(f"thickness:   {thickness}")
 
                                         # Extract widths (e.g., 700-500-600)
                                         width_values = [float(w) for w in name.split("(")[1].split(")")[0].split("-")]
@@ -249,19 +250,26 @@ class DXFExtractor:
                                         volume_segment = 0
                                         for i in range(len(length_segments)):
                                             l = length_segments[i]
+                                            print(f"length_segments:   {length_segments[i]}")
                                             w1 = width_values[i]
+                                            print(f"width_values:   {width_values[i]}")
                                             w2 = width_values[i + 1]
+                                            print(f"width_values[i+1]:   {width_values[i+1]}")
                                             avg_width = (w1 + w2) / 2
-
+                                            print(f"avg_width:   {avg_width}")
                                             area_segment = (
                                                 (l * avg_width) * 2
                                                 + (l * thickness) * 2
                                                 + (avg_width * thickness) * 2
                                             )
                                             area += area_segment
+                                            print(f"area_segment:   {area_segment}")
+                                            print(f"area:   {area}")
                                             # Volume for the current segment
                                             volume_segment = l * avg_width * thickness / 1000000000  # mm³ to m³
+                                            print(f"volume_segment:   {volume_segment}")
                                             total_weight += volume_segment * float(self.density)  # Weight = Volume * Density
+                                            print(f"total_weight:   {total_weight}")
 
                                         area = area / 1000000  # mm² to m²
 
@@ -269,6 +277,9 @@ class DXFExtractor:
                                         avg_width = sum(width_values) / len(width_values)
                                         volume = l * avg_width * thickness / 1000000000
                                         weight = total_weight
+                                        print(f"weight:   {weight}")
+                                        print(f"area:   {area}")
+                                        print(f"**********")
 
                                         if "~" in name:
                                             part_name, qty = name.split("~")
@@ -892,7 +903,7 @@ class DXFExtractor:
 
                                 length_segments = [float(l) for l in dimension.split("X")[0].split("+")]
                                 thickness = float(dimension.split("X")[2])
-
+                                print(f"thickness:   {thickness}")
                                 # Extract widths (e.g., 700-500-600)
                                 width_values = [float(w) for w in name.split("(")[1].split(")")[0].split("-")]
 
@@ -905,19 +916,26 @@ class DXFExtractor:
                                 volume_segment = 0
                                 for i in range(len(length_segments)):
                                     l = length_segments[i]
+                                    print(f"length_segments:   {length_segments[i]}")
                                     w1 = width_values[i]
+                                    print(f"width_values:   {width_values[i]}")
                                     w2 = width_values[i + 1]
+                                    print(f"width_values[i+1]:   {width_values[i+1]}")
                                     avg_width = (w1 + w2) / 2
-
+                                    print(f"avg_width:   {avg_width}")
                                     area_segment = (
                                         (l * avg_width) * 2
                                         + (l * thickness) * 2
                                         + (avg_width * thickness) * 2
                                     )
                                     area += area_segment
+                                    print(f"area_segment:   {area_segment}")
+                                    print(f"area:   {area}")
                                     # Volume for the current segment
-                                    volume_segment += l * avg_width * thickness / 1000000000  # mm³ to m³
+                                    volume_segment = l * avg_width * thickness / 1000000000 # mm³ to m³
+                                    print(f"volume_segment:   {volume_segment}") 
                                     total_weight += volume_segment * float(self.density)  # Weight = Volume * Density
+                                    print(f"total_weight:   {total_weight}")
 
                                 area = area / 1000000  # mm² to m²
 
@@ -925,7 +943,9 @@ class DXFExtractor:
                                 avg_width = sum(width_values) / len(width_values)
                                 volume = volume_segment
                                 weight = total_weight
-
+                                print(f"weight:   {weight}")
+                                print(f"area:   {area}")
+                                print(f"**********")
                                 if "~" in name:
                                     part_name, qty = name.split("~")
                                 else:
