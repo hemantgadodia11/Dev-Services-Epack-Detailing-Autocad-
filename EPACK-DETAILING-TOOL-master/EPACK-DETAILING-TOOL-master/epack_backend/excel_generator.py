@@ -130,7 +130,7 @@ class ExcelGenerator:
 
             max_length = 0
             for parts_dict in block_details["parts"]:
-                total_sa = total_sa + parts_dict["Area (m2)"]
+                total_sa = total_sa + (parts_dict["Area (m2)"] * int(parts_dict["Quantity"]))
                 total_w = total_w + (parts_dict["Weight (kg)"] * int(parts_dict["Quantity"]))
                 if parts_dict["Length (mm)"] > max_length:
                     max_length = parts_dict["Length (mm)"]
