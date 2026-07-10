@@ -6,6 +6,7 @@ from flask import Flask, request, jsonify, abort, Response, send_file, make_resp
 import ezdxf
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import HTTPException
 from dxf_extractor import DXFExtractor
 from local_storage_utils import LocalStorageUtils
 from user_handler import UserHandler
@@ -15,6 +16,7 @@ from inventory_handler import InventoryHandler
 from layout_handler import LayoutHandler
 import random
 from panel_rows import extract_panel_rows
+from job_card_handler import JobCardHandler
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
@@ -308,6 +310,54 @@ def get_panel_info():
         logger.info(f"[SUCCESS] Username: {username}")
         print(f"[SUCCESS] Username: {username}")
 
+        # ---------------------- Job Card Fields ---------------------- #
+        logger.info("[INFO] Validating job card fields...")
+        print("[INFO] Validating job card fields...")
+
+        job_card_no = request.form.get("job_card_no")
+
+        if not job_card_no:
+            logger.error("[ERROR] Job card number not provided.")
+            print("[ERROR] Job card number not provided.")
+            abort(406, description="Job card number not provided by user")
+
+        def _parse_number(field_name, cast):
+            raw_value = request.form.get(field_name, "")
+            if raw_value is None or str(raw_value).strip() == "":
+                return 0
+            try:
+                return cast(raw_value)
+            except (TypeError, ValueError):
+                abort(406, description=f"Invalid value for {field_name}: {raw_value}")
+
+        job_card_data = {
+            "job_card_no": job_card_no,
+            "building_type": request.form.get("building_type", ""),
+            "client_name": request.form.get("client_name", ""),
+            "detailer_name": request.form.get("detailer_name", ""),
+            "project_name": project_name,
+            "username": username,
+            "number_of_kits": _parse_number("number_of_kits", int),
+            "iso_kg": _parse_number("iso_kg", float),
+            "polyol_kg": _parse_number("polyol_kg", float),
+            "camlock_male": _parse_number("camlock_male", int),
+            "camlock_female": _parse_number("camlock_female", int),
+            "baker_oil_ltr": _parse_number("baker_oil_ltr", float),
+            "wall_panel_qty_sqm": _parse_number("wall_panel_qty_sqm", float),
+            "ceiling_panel_qty_sqm": _parse_number("ceiling_panel_qty_sqm", float),
+            "roof_panel_qty_sqm": _parse_number("roof_panel_qty_sqm", float),
+            "roof_sheet_qty_sqm": _parse_number("roof_sheet_qty_sqm", float),
+            "floor_slab_qty_sqm": _parse_number("floor_slab_qty_sqm", float),
+            "deck_sheet_qty_sqm": _parse_number("deck_sheet_qty_sqm", float),
+            "floor_panel_qty_sqm": _parse_number("floor_panel_qty_sqm", float),
+            "ppgi_top_weight": _parse_number("ppgi_top_weight", float),
+            "ppgi_bottom_weight": _parse_number("ppgi_bottom_weight", float),
+            "wall_sheet_qty_sqm": _parse_number("wall_sheet_qty_sqm", float),
+        }
+
+        logger.info(f"[SUCCESS] Job Card No: {job_card_no}")
+        print(f"[SUCCESS] Job Card No: {job_card_no}")
+
         # ---------------------- Validate DXF ---------------------- #
         if dxf_file and allowed_file(dxf_file.filename):
 
@@ -318,7 +368,7 @@ def get_panel_info():
                 logger.info("[INFO] Creating upload directory...")
                 print("[INFO] Creating upload directory...")
 
-                os.makedirs(app.config["UPLOAD_PANEL_FOLDER"], exist_ok=True)
+                os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
 
                 filename_parts = os.path.splitext(dxf_file.filename)
                 name_part = filename_parts[0]
@@ -383,48 +433,65 @@ def get_panel_info():
 
             # ---------------------- DXF Processing ---------------------- #
             try:
+                # --- Step 1: read the DXF file ---
+                try:
+                    logger.info("[INFO] Reading DXF file...")
+                    print("[INFO] Reading DXF file...")
 
-                logger.info("[INFO] Reading DXF file...")
-                print("[INFO] Reading DXF file...")
+                    doc = ezdxf.readfile(filepath)
 
-                doc = ezdxf.readfile(filepath)
+                    logger.info("[SUCCESS] DXF file loaded successfully.")
+                    print("[SUCCESS] DXF file loaded successfully.")
 
-                logger.info("[SUCCESS] DXF file loaded successfully.")
-                print("[SUCCESS] DXF file loaded successfully.")
+                except ezdxf.DXFStructureError as e:
+                    logger.exception("[ERROR] Invalid DXF structure.")
+                    print(f"[ERROR] Invalid DXF structure: {e}")
+                    abort(406, description=f"Invalid DXF file structure: {str(e)}")
 
-                logger.info("[INFO] Extracting panel information...")
-                print("[INFO] Extracting panel information...")
+                except ezdxf.DXFVersionError as e:
+                    logger.exception("[ERROR] Unsupported DXF version.")
+                    print(f"[ERROR] Unsupported DXF version: {e}")
+                    abort(406, description=f"Unsupported DXF version: {str(e)}")
 
-                rows = extract_panel_rows(doc)
+                except Exception as e:
+                    logger.exception("[ERROR] Failed to read DXF file.")
+                    print(f"[ERROR] Failed to read DXF file: {e}")
+                    abort(406, description=f"Failed to read DXF file: {str(e)}")
 
-                logger.info(f"[SUCCESS] Panel extraction completed. Total Rows: {len(rows)}")
-                print(f"[SUCCESS] Panel extraction completed. Total Rows: {len(rows)}")
+                # --- Step 2: extract panel rows from the parsed DXF ---
+                try:
+                    logger.info("[INFO] Extracting panel information...")
+                    print("[INFO] Extracting panel information...")
 
-                logger.info("[END] Request completed successfully.")
+                    rows = extract_panel_rows(doc)
+
+                    logger.info(f"[SUCCESS] Panel extraction completed. Total Rows: {len(rows)}")
+                    print(f"[SUCCESS] Panel extraction completed. Total Rows: {len(rows)}")
+
+                except Exception as e:
+                    logger.exception("[ERROR] Panel extraction failed.")
+                    print(f"[ERROR] Panel extraction failed: {e}")
+                    abort(406, description=f"Panel extraction failed: {str(e)}")
+
+                # --- Step 3: persist the job card ---
+                try:
+                    logger.info(f"[INFO] Saving job card '{job_card_no}'...")
+                    print(f"[INFO] Saving job card '{job_card_no}'...")
+
+                    JobCardHandler().save_job_card(job_card_data)
+
+                    logger.info(f"[SUCCESS] Job card saved: {job_card_no}")
+                    print(f"[SUCCESS] Job card saved: {job_card_no}")
+
+                except Exception as e:
+                    logger.exception(f"[ERROR] Failed to save job card '{job_card_no}'.")
+                    print(f"[ERROR] Failed to save job card: {e}")
+                    abort(500, description=f"Failed to save job card: {str(e)}")
+
+                logger.info(f"[END] Request completed successfully. Rows: {len(rows)}, Job Card: {job_card_no}")
                 logger.info("=" * 80)
 
-                return jsonify(rows), 200
-
-            except ezdxf.DXFStructureError as e:
-
-                logger.exception("[ERROR] Invalid DXF structure.")
-                print(f"[ERROR] Invalid DXF structure: {e}")
-
-                abort(406, description=f"Invalid DXF file structure: {str(e)}")
-
-            except ezdxf.DXFVersionError as e:
-
-                logger.exception("[ERROR] Unsupported DXF version.")
-                print(f"[ERROR] Unsupported DXF version: {e}")
-
-                abort(406, description=f"Unsupported DXF version: {str(e)}")
-
-            except Exception as e:
-
-                logger.exception("[ERROR] Panel extraction failed.")
-                print(f"[ERROR] Panel extraction failed: {e}")
-
-                abort(406, description=str(e))
+                return jsonify({"job_card": job_card_data, "rows": rows}), 200
 
             finally:
                 try:
@@ -449,6 +516,11 @@ def get_panel_info():
             print("[ERROR] Invalid file format. Only DXF files are allowed.")
 
             abort(406, description="Invalid File Format")
+
+    except HTTPException:
+        # Deliberate abort() calls above already carry the right status/message —
+        # let them propagate as-is instead of falling into the generic 500 below.
+        raise
 
     except Exception as e:
 

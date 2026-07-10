@@ -2,6 +2,7 @@
 import Navbar from "@/components/Navbar";
 import { ProjectSelection } from "@/components/ProjectSelection";
 import { UploadFile } from "@/components/UploadFile";
+import { PanelDxf } from "@/components/PanelDxf";
 import React, { useState, useEffect } from "react";
 import {
   MaterialReactTable,
@@ -176,6 +177,7 @@ const Page = () => {
           <div className="grid grid-cols-2 gap-4">
             <UploadFile project_list={projectList} />
             <ProjectSelection project_list={projectList} />
+            <PanelDxf project_list={projectList} />
           </div>
           {inventoryAccess ? (
             <div className="flex flex-col gap-4">

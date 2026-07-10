@@ -41,7 +41,11 @@ _process_records() below.
 
 from __future__ import annotations
 
+import logging
+
 from panel_dxf_extractor import WTextExtractor, RTextExtractor
+
+logger = logging.getLogger(__name__)
 
 
 # Category / Item Type, keyed by the code family letter.
@@ -78,14 +82,32 @@ def _build_row(row_number: int, category: str, item_type: str,
 
 
 def _process_records(records, family: str, row_number: int, rows: list[dict]) -> int:
-    category = _CATEGORY_BY_FAMILY[family]
-    item_type = _ITEM_TYPE_BY_FAMILY[family]
+    try:
+        category = _CATEGORY_BY_FAMILY[family]
+        item_type = _ITEM_TYPE_BY_FAMILY[family]
+    except KeyError:
+        logger.error(
+            f"No Category/Item Type mapping for family '{family}' — "
+            f"skipping {len(records)} record(s)"
+        )
+        return row_number
 
+    rows_built = 0
     for rec in records:
-        for code, qty in rec.codes:
-            rows.append(_build_row(row_number, category, item_type, rec.length, rec.width, rec.thickness, code, qty))
-            row_number += 1
+        try:
+            for code, qty in rec.codes:
+                rows.append(_build_row(row_number, category, item_type, rec.length, rec.width, rec.thickness, code, qty))
+                row_number += 1
+                rows_built += 1
+        except Exception:
+            logger.warning(
+                f"Failed to build row(s) for '{family}' record in block "
+                f"'{getattr(rec, 'block_name', '?')}'",
+                exc_info=True,
+            )
+            continue
 
+    logger.info(f"Built {rows_built} row(s) for family '{family}' from {len(records)} record(s)")
     return row_number
 
 
@@ -99,8 +121,23 @@ def extract_panel_rows(doc) -> list[dict]:
     rows: list[dict] = []
     row_number = 1
 
-    row_number = _process_records(WTextExtractor(doc).extract(), "W", row_number, rows)
-    row_number = _process_records(RTextExtractor(doc).extract(), "R", row_number, rows)
+    logger.info("Extracting panel rows from DXF document")
+
+    try:
+        w_records = WTextExtractor(doc).extract()
+    except Exception:
+        logger.exception("Failed to extract W-family records")
+        w_records = []
+    row_number = _process_records(w_records, "W", row_number, rows)
+
+    try:
+        r_records = RTextExtractor(doc).extract()
+    except Exception:
+        logger.exception("Failed to extract R-family records")
+        r_records = []
+    row_number = _process_records(r_records, "R", row_number, rows)
+
+    logger.info(f"Extraction complete: {len(rows)} row(s) total")
 
     return rows
 

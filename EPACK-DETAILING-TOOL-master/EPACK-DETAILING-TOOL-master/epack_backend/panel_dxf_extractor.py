@@ -28,8 +28,11 @@ place, so panel_rows.py doesn't need any of its own.
 
 from __future__ import annotations
 
+import logging
 import re
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -95,18 +98,48 @@ class _PartTextExtractor:
 
     def extract(self) -> list[PartTextRecord]:
         results: list[PartTextRecord] = []
+        blocks_scanned = 0
+        entities_skipped = 0
+
+        logger.info(f"[{self.family_letter}] Scanning DXF for mark_* blocks")
 
         for block in self.doc.blocks:
             if not block.name.startswith("mark_"):
                 continue
+            blocks_scanned += 1
 
             for entity in block:
-                # --- Case 1: text lives inside a DIMENSION's virtual MTEXT ---
-                if entity.dxftype() == "DIMENSION":
-                    for virtual_entity in entity.virtual_entities():
-                        if virtual_entity.dxftype() != "MTEXT":
-                            continue
-                        raw = virtual_entity.dxf.text
+                try:
+                    # --- Case 1: text lives inside a DIMENSION's virtual MTEXT ---
+                    if entity.dxftype() == "DIMENSION":
+                        for virtual_entity in entity.virtual_entities():
+                            if virtual_entity.dxftype() != "MTEXT":
+                                continue
+                            raw = virtual_entity.dxf.text
+                            cleaned = self.clean_mtext(raw)
+                            parsed = self._parse_line(cleaned)
+                            if parsed:
+                                length, width, thickness, codes = parsed
+                                results.append(
+                                    PartTextRecord(
+                                        block_name=block.name,
+                                        family=self.family_letter,
+                                        length=length,
+                                        width=width,
+                                        thickness=thickness,
+                                        codes=codes,
+                                        raw_text=raw,
+                                    )
+                                )
+                                logger.debug(
+                                    f"[{self.family_letter}] Parsed DIMENSION text in "
+                                    f"block '{block.name}': {cleaned!r} -> "
+                                    f"L={length} W={width} T={thickness} codes={codes}"
+                                )
+
+                    # --- Case 2: a plain MTEXT entity directly in the block ---
+                    elif entity.dxftype() == "MTEXT":
+                        raw = entity.dxf.text
                         cleaned = self.clean_mtext(raw)
                         parsed = self._parse_line(cleaned)
                         if parsed:
@@ -122,25 +155,24 @@ class _PartTextExtractor:
                                     raw_text=raw,
                                 )
                             )
-
-                # --- Case 2: a plain MTEXT entity directly in the block ---
-                elif entity.dxftype() == "MTEXT":
-                    raw = entity.dxf.text
-                    cleaned = self.clean_mtext(raw)
-                    parsed = self._parse_line(cleaned)
-                    if parsed:
-                        length, width, thickness, codes = parsed
-                        results.append(
-                            PartTextRecord(
-                                block_name=block.name,
-                                family=self.family_letter,
-                                length=length,
-                                width=width,
-                                thickness=thickness,
-                                codes=codes,
-                                raw_text=raw,
+                            logger.debug(
+                                f"[{self.family_letter}] Parsed MTEXT in "
+                                f"block '{block.name}': {cleaned!r} -> "
+                                f"L={length} W={width} T={thickness} codes={codes}"
                             )
-                        )
+                except Exception:
+                    entities_skipped += 1
+                    logger.warning(
+                        f"[{self.family_letter}] Skipped unreadable entity "
+                        f"({entity.dxftype()}) in block '{block.name}'",
+                        exc_info=True,
+                    )
+                    continue
+
+        logger.info(
+            f"[{self.family_letter}] Scanned {blocks_scanned} mark_* block(s), "
+            f"extracted {len(results)} record(s), skipped {entities_skipped} unreadable entit(y/ies)"
+        )
 
         return results
 
