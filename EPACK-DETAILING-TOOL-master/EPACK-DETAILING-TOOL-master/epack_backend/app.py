@@ -14,7 +14,7 @@ from excel_generator import ExcelGenerator
 from inventory_handler import InventoryHandler
 from layout_handler import LayoutHandler
 import random
-
+from panel_rows import extract_panel_rows
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 app.config["MAX_CONTENT_LENGTH"] = 100 * 1024 * 1024
@@ -248,6 +248,220 @@ def get_dxf_info():
         print(f"CRITICAL ERROR: Unexpected error in get_dxf_info - {e}")
         logger.critical(f"Unexpected error: {e}")
         abort(500, description="Internal server error")
+
+
+
+###################################
+
+@app.route("/upload-panel", methods=["POST"])
+def get_panel_info():
+    try:
+        logger.info("=" * 80)
+        logger.info("[START] New Panel Upload Request Received")
+        print("=" * 80)
+        print("[START] New Panel Upload Request Received")
+
+        # ---------------------- Validate Uploaded File ---------------------- #
+        logger.info("[INFO] Validating uploaded file...")
+        print("[INFO] Validating uploaded file...")
+
+        if "file" not in request.files:
+            logger.error("[ERROR] Request does not contain uploaded file.")
+            print("[ERROR] Request does not contain uploaded file.")
+            abort(406, description="No file part")
+
+        dxf_file = request.files["file"]
+
+        if dxf_file.filename == "":
+            logger.error("[ERROR] Uploaded file is empty.")
+            print("[ERROR] Uploaded file is empty.")
+            abort(406, description="No selected file")
+
+        logger.info(f"[SUCCESS] File received: {dxf_file.filename}")
+        print(f"[SUCCESS] File received: {dxf_file.filename}")
+
+        # ---------------------- Project Name ---------------------- #
+        logger.info("[INFO] Validating project name...")
+        print("[INFO] Validating project name...")
+
+        project_name = request.form.get("projectName")
+
+        if not project_name:
+            logger.error("[ERROR] Project name not provided.")
+            print("[ERROR] Project name not provided.")
+            abort(406, description="Project name not provided by user")
+
+        logger.info(f"[SUCCESS] Project Name: {project_name}")
+        print(f"[SUCCESS] Project Name: {project_name}")
+
+        # ---------------------- Username ---------------------- #
+        logger.info("[INFO] Validating username...")
+        print("[INFO] Validating username...")
+
+        username = request.form.get("username")
+
+        if not username:
+            logger.error("[ERROR] Username not provided.")
+            print("[ERROR] Username not provided.")
+            abort(406, description="Username not provided by user")
+
+        logger.info(f"[SUCCESS] Username: {username}")
+        print(f"[SUCCESS] Username: {username}")
+
+        # ---------------------- Validate DXF ---------------------- #
+        if dxf_file and allowed_file(dxf_file.filename):
+
+            logger.info("[SUCCESS] Valid DXF file detected.")
+            print("[SUCCESS] Valid DXF file detected.")
+
+            try:
+                logger.info("[INFO] Creating upload directory...")
+                print("[INFO] Creating upload directory...")
+
+                os.makedirs(app.config["UPLOAD_PANEL_FOLDER"], exist_ok=True)
+
+                filename_parts = os.path.splitext(dxf_file.filename)
+                name_part = filename_parts[0]
+                ext_part = filename_parts[1]
+
+                random_suffix = str(random.random()).replace(".", "")
+                new_file_name = f"{name_part}_{random_suffix}{ext_part}"
+
+                hashed_filename = secure_filename(new_file_name)
+
+                filepath = os.path.join(app.config["UPLOAD_FOLDER"], hashed_filename)
+
+                logger.info(f"[INFO] Original Filename : {dxf_file.filename}")
+                logger.info(f"[INFO] Generated Filename: {hashed_filename}")
+
+                print(f"[INFO] Original Filename : {dxf_file.filename}")
+                print(f"[INFO] Generated Filename: {hashed_filename}")
+
+                dxf_file.save(filepath)
+
+                logger.info(f"[SUCCESS] File saved successfully at: {filepath}")
+                print(f"[SUCCESS] File saved successfully at: {filepath}")
+
+            except Exception as e:
+                logger.exception("[ERROR] Failed to save uploaded file.")
+                print(f"[ERROR] Failed to save uploaded file: {e}")
+                abort(500, description="Failed to save uploaded file")
+
+            # ---------------------- Counter ---------------------- #
+            try:
+                logger.info("[INFO] Reading request counter...")
+                print("[INFO] Reading request counter...")
+
+                with open("counter.txt", "r") as f:
+                    counter = int(f.read())
+
+                logger.info(f"[INFO] Current Counter : {counter}")
+                print(f"[INFO] Current Counter : {counter}")
+
+                counter += 1
+
+                with open("counter.txt", "w") as f:
+                    f.write(str(counter))
+
+                logger.info(f"[SUCCESS] Counter updated to: {counter}")
+                print(f"[SUCCESS] Counter updated to: {counter}")
+
+            except FileNotFoundError:
+
+                logger.warning("[WARNING] Counter file not found. Creating a new one.")
+                print("[WARNING] Counter file not found. Creating a new one.")
+
+                counter = 1
+
+                with open("counter.txt", "w") as f:
+                    f.write(str(counter))
+
+            except Exception as e:
+
+                logger.exception("[ERROR] Counter file operation failed.")
+                print(f"[ERROR] Counter file operation failed: {e}")
+
+            # ---------------------- DXF Processing ---------------------- #
+            try:
+
+                logger.info("[INFO] Reading DXF file...")
+                print("[INFO] Reading DXF file...")
+
+                doc = ezdxf.readfile(filepath)
+
+                logger.info("[SUCCESS] DXF file loaded successfully.")
+                print("[SUCCESS] DXF file loaded successfully.")
+
+                logger.info("[INFO] Extracting panel information...")
+                print("[INFO] Extracting panel information...")
+
+                rows = extract_panel_rows(doc)
+
+                logger.info(f"[SUCCESS] Panel extraction completed. Total Rows: {len(rows)}")
+                print(f"[SUCCESS] Panel extraction completed. Total Rows: {len(rows)}")
+
+                logger.info("[END] Request completed successfully.")
+                logger.info("=" * 80)
+
+                return jsonify(rows), 200
+
+            except ezdxf.DXFStructureError as e:
+
+                logger.exception("[ERROR] Invalid DXF structure.")
+                print(f"[ERROR] Invalid DXF structure: {e}")
+
+                abort(406, description=f"Invalid DXF file structure: {str(e)}")
+
+            except ezdxf.DXFVersionError as e:
+
+                logger.exception("[ERROR] Unsupported DXF version.")
+                print(f"[ERROR] Unsupported DXF version: {e}")
+
+                abort(406, description=f"Unsupported DXF version: {str(e)}")
+
+            except Exception as e:
+
+                logger.exception("[ERROR] Panel extraction failed.")
+                print(f"[ERROR] Panel extraction failed: {e}")
+
+                abort(406, description=str(e))
+
+            finally:
+                try:
+
+                    logger.info("[INFO] Cleaning temporary uploaded file...")
+                    print("[INFO] Cleaning temporary uploaded file...")
+
+                    if os.path.exists(filepath):
+                        os.remove(filepath)
+
+                        logger.info(f"[SUCCESS] Temporary file deleted: {filepath}")
+                        print(f"[SUCCESS] Temporary file deleted: {filepath}")
+
+                except Exception as e:
+
+                    logger.warning(f"[WARNING] Failed to delete temporary file: {filepath}")
+                    print(f"[WARNING] Failed to delete temporary file: {e}")
+
+        else:
+
+            logger.error("[ERROR] Invalid file format. Only DXF files are allowed.")
+            print("[ERROR] Invalid file format. Only DXF files are allowed.")
+
+            abort(406, description="Invalid File Format")
+
+    except Exception as e:
+
+        logger.exception("[CRITICAL] Unexpected exception in /upload-panel endpoint.")
+        print("=" * 80)
+        print("[CRITICAL] Unexpected exception in /upload-panel endpoint.")
+        print(f"[DETAILS] {e}")
+        print("=" * 80)
+
+        abort(500, description="Internal server error")
+
+        
+####################################
 
 @app.route("/get_parts_info", methods=["GET"])
 def get_parts_info():
